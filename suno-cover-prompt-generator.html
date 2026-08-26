@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Suno Cover Prompt Generator</title>
+<script>
+  const savedTheme = localStorage.getItem('sunoTheme');
+  if(savedTheme) document.documentElement.dataset.theme = savedTheme;
+</script>
+<style>
+  :root {
+    --bg: #fff; --fg: #222; --fg-muted: #555; --fg-faint: #999;
+    --border: #ccc; --border-soft: #ddd; --border-faint: #e5e5e5;
+    --panel: #f7f7f7; --panel-hover: #eee; --input-bg: #fff;
+    --chip-active-bg: #222; --chip-active-fg: #fff;
+    --warn: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1a1a; --fg: #e8e8e8; --fg-muted: #aaa; --fg-faint: #777;
+      --border: #444; --border-soft: #3a3a3a; --border-faint: #333;
+      --panel: #242424; --panel-hover: #2e2e2e; --input-bg: #262626;
+      --chip-active-bg: #e8e8e8; --chip-active-fg: #1a1a1a;
+      --warn: #e06c5c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1a1a; --fg: #e8e8e8; --fg-muted: #aaa; --fg-faint: #777;
+    --border: #444; --border-soft: #3a3a3a; --border-faint: #333;
+    --panel: #242424; --panel-hover: #2e2e2e; --input-bg: #262626;
+    --chip-active-bg: #e8e8e8; --chip-active-fg: #1a1a1a;
+    --warn: #e06c5c;
+  }
+  body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: var(--fg); background: var(--bg); }
+  h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; color: var(--fg-muted); }
+  label { font-size: 13px; color: var(--fg-muted); display: block; margin-bottom: 4px; }
+  select, input, button { width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box; font-size: 14px; background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+  button:hover { background: var(--panel-hover); }
+  #out, #outB { background: var(--panel); border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; min-height: 60px; border: 1px solid var(--border-soft); color: var(--fg); }
+  .btns { display: flex; gap: 8px; }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip { width: auto; margin-bottom: 0; padding: 6px 12px; border-radius: 999px; font-size: 13px; }
+  .chip.active { background: var(--chip-active-bg); color: var(--chip-active-fg); border-color: var(--chip-active-bg); }
+  .check-group { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; }
+  .check-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--fg); width: auto; }
+  .check-item input { width: auto; margin: 0; }
+  .hint { font-size: 11px; color: var(--fg-faint); margin: -8px 0 12px; }
+  .preset-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; align-items: start; }
+  .charcount { font-size: 11px; color: var(--fg-faint); margin: 6px 0 0; text-align: right; }
+  .charcount.warn { color: var(--warn); }
+  .variant-label { font-size: 12px; font-weight: 600; color: var(--fg-muted); margin: 16px 0 6px; }
+  #history { margin-top: 8px; }
+  .history-item { font-size: 12px; color: var(--fg-muted); padding: 6px 8px; border: 1px solid var(--border-faint); border-radius: 6px; margin-bottom: 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-item:hover { background: var(--panel-hover); }
+  .history-empty { font-size: 12px; color: var(--fg-faint); }
+  .small-btn { width: auto; padding: 6px 10px; font-size: 12px; }
+  #themeToggle { width: auto; padding: 6px 10px; font-size: 16px; margin: 0; line-height: 1; }
+</style>
+</head>
+<body>
+<h1>Генератор промптов для Suno Cover Feature <button id="themeToggle" title="Переключить тему">🌙</button></h1>
+
+<h2>Жанр</h2>
+<div class="row">
+  <div>
+    <label>Группа / поджанр</label>
+    <select id="subgenre"></select>
+  </div>
+  <div>
+    <label>Тяжесть (рок/метал)</label>
+    <select id="heaviness">
+      <option value="" selected>— не указано —</option>
+      <option value="clean">лёгкий (clean/crunch tone, mid-focused mix)</option>
+      <option value="medium">средний (balanced distortion, full mix)</option>
+      <option value="heavy">тяжёлый (heavy distorted, scooped mids, modern metal punch)</option>
+    </select>
+  </div>
+</div>
+
+<label>Свой жанр (перебивает выбор выше, если заполнено)</label>
+<input type="text" id="customGenre" placeholder="напр. dark synthwave with post-punk bass" />
+
+<h2>Эпоха / стилизация</h2>
+<select id="era">
+  <option value="" selected>— не указано —</option>
+  <option value="vintage">Vintage (общий винтаж)</option>
+  <option value="60s">60-е</option>
+  <option value="70s">70-е</option>
+  <option value="80s">80-е</option>
+  <option value="90s">90-е</option>
+  <option value="2000s">2000-е</option>
+  <option value="modern">Современность</option>
+</select>
+
+<h2>Темп и настроение</h2>
+<div class="row">
+  <div>
+    <label>Темп</label>
+    <select id="tempo">
+      <option value="" selected>— не указано —</option>
+      <option value="slow">медленный (slow ballad tempo)</option>
+      <option value="mid">средний (mid-tempo groove)</option>
+      <option value="up">быстрый (uptempo, energetic pace)</option>
+    </select>
+  </div>
+  <div>
+    <label>Настроение</label>
+    <select id="mood">
+      <option value="" selected>— не указано —</option>
+      <option value="darkminor">тёмное (dark minor-key mood)</option>
+      <option value="upliftmajor">светлое (uplifting major-key energy)</option>
+      <option value="melancholic">меланхоличное</option>
+      <option value="aggressive">агрессивное / напряжённое</option>
+      <option value="euphoric">эйфоричное / триумфальное</option>
+    </select>
+  </div>
+</div>
+
+<h2>Динамика и мастеринг</h2>
+<div class="row">
+  <div>
+    <label>Динамика</label>
+    <select id="dynamics">
+      <option value="" selected>— не указано —</option>
+      <option value="buildup">нарастание (dynamic buildup)</option>
+      <option value="consistent">ровная громкость</option>
+      <option value="quietloud">тихие куплеты / громкие припевы</option>
+    </select>
+  </div>
+  <div>
+    <label>Мастеринг</label>
+    <select id="master">
+      <option value="" selected>— не указано —</option>
+      <option value="streaming">streaming-ready (современная громкость)</option>
+      <option value="radio">radio-ready (отполированный)</option>
+      <option value="vinyl">vinyl-style (тёплый, меньше лимитинга)</option>
+    </select>
+  </div>
+</div>
+
+<h2>Характер звука</h2>
+<div class="chip-group" id="effectChips"></div>
+
+<h2>Вокал</h2>
+<div class="chip-group" id="vocalChips"></div>
+
+<label>Референс-стиль (опционально)</label>
+<input type="text" id="reference" placeholder="напр. sounds like early Metallica" />
+
+<h2>Источник демки</h2>
+<select id="source">
+  <option value="studio">студийная запись (wav/mp3)</option>
+  <option value="cassette">оцифровано с кассеты</option>
+</select>
+
+<h2>Добавить инструменты</h2>
+<div class="check-group" id="addInstrumentChecks"></div>
+
+<h2>Убрать инструменты</h2>
+<div class="check-group" id="removeInstrumentChecks"></div>
+
+<label>Особые пометки по треку (опционально)</label>
+<input type="text" id="notes" placeholder="напр. акустическая гитара в интро, дуэт вокалов" />
+
+<h2>Пресеты</h2>
+<div class="preset-row">
+  <select id="presetSelect"><option value="">— пресеты —</option></select>
+  <button id="presetSave" class="small-btn">Сохранить</button>
+  <button id="presetDelete" class="small-btn">Удалить</button>
+</div>
+
+<div class="btns">
+  <button id="gen">Сгенерировать промпт</button>
+  <button id="copy">Копировать</button>
+</div>
+<div class="btns">
+  <button id="randomize">🎲 Randomize</button>
+  <button id="genB">Сгенерировать вариант B</button>
+</div>
+<div class="btns">
+  <button id="reset">Reset (сбросить на дефолт)</button>
+</div>
+
+<br>
+<div class="variant-label">Style Summary</div>
+<div id="summaryOut"></div>
+<div class="btns" style="margin-top:8px;">
+  <button id="copySummary" class="small-btn">Копировать Summary</button>
+</div>
+
+<div class="variant-label">Полный промпт</div>
+<div id="out"></div>
+<div class="charcount" id="charCount"></div>
+
+<div id="variantBWrap" style="display:none;">
+  <div class="variant-label">Вариант B (случайные вторичные параметры)</div>
+  <div id="outB"></div>
+  <div class="btns" style="margin-top:8px;">
+    <button id="copyB">Копировать B</button>
+  </div>
+</div>
+
+<h2>История</h2>
+<div class="btns"><button id="clearHistory" class="small-btn">Очистить историю</button></div>
+<div id="history"></div>
+
+<script>
+const genreGroups = {
+  "Rock": ["classic rock","hard rock","punk rock","alt rock","grunge","post-hardcore","southern rock","prog rock","psychedelic rock","garage rock","indie rock","ballad rock / power ballad"],
+  "Metal": ["thrash metal","metalcore","heavy metal","death metal","black metal","nu metal","doom metal","power metal","symphonic metal"],
+  "Pop": ["pop","synth-pop","dance-pop","indie pop","dream pop","k-pop","electropop"],
+  "Electronic": ["house","techno","trance","drum and bass","dubstep","synthwave","EDM","ambient","lo-fi electronic","IDM"],
+  "Hip-Hop / R&B": ["hip-hop","trap","boom bap","R&B","neo-soul","funk"],
+  "Jazz / Soul / Blues": ["jazz","smooth jazz","soul","blues","gospel"],
+  "Folk / Country": ["folk","country","bluegrass","singer-songwriter","americana"],
+  "Latin / World": ["latin pop","reggaeton","bossa nova","afrobeat","reggae","ska"],
+  "Classical / Cinematic": ["orchestral","cinematic score","piano solo","chamber music"]
+};
+
+const heavyBlocks = {
+  clean: "clean and crunch guitar tone, mid-focused mix, warm dynamics",
+  medium: "balanced guitar distortion, full and clear mix, solid low end",
+  heavy: "heavy distorted guitars, scooped mids, aggressive low end, modern metal punch"
+};
+
+const eraBlocks = {
+  vintage: "vintage analog character, warm tape saturation, classic studio equipment tone",
+  "60s": "1960s vintage production, analog tape warmth, mono-leaning mix, vintage tube amp tone",
+  "70s": "1970s analog production, warm tape saturation, vintage rock studio sound",
+  "80s": "1980s production, gated reverb drums, bright synths, analog warmth",
+  "90s": "1990s production, punchy analog mix, classic alternative studio sound",
+  "2000s": "2000s digital production, polished loudness-war mastering, tight modern mix",
+  modern: "modern hi-fi production, pristine digital clarity, contemporary streaming-ready master"
+};
+
+const tempoBlocks = {
+  slow: "slow ballad tempo",
+  mid: "mid-tempo groove",
+  up: "uptempo, energetic pace"
+};
+
+const moodBlocks = {
+  darkminor: "dark minor-key mood, moody atmosphere",
+  upliftmajor: "uplifting major-key energy, bright mood",
+  melancholic: "melancholic, introspective mood",
+  aggressive: "aggressive, intense mood",
+  euphoric: "euphoric, triumphant mood"
+};
+
+const dynamicsBlocks = {
+  buildup: "dynamic buildup, rising intensity through the track",
+  consistent: "consistent loudness throughout",
+  quietloud: "quiet verses, loud choruses, dynamic contrast"
+};
+
+const masterBlocks = {
+  streaming: "streaming-ready loudness, modern competitive master",
+  radio: "radio-ready polished master",
+  vinyl: "vinyl-style master, warm dynamic headroom, less brickwall limiting"
+};
+
+const effectBlocks = {
+  saturation: "tape saturation",
+  warmth: "warm analog tone",
+  reverb: "lush reverb, spacious ambience",
+  chorus: "chorus-laden shimmer",
+  vinyl: "subtle vinyl crackle character",
+  compression: "glued bus compression, punchy dynamics",
+  wide: "wide stereo image"
+};
+const effectLabels = {
+  saturation: "Сатурация", warmth: "Теплота", reverb: "Реверберация",
+  chorus: "Хорус", vinyl: "Винил", compression: "Компрессия", wide: "Стерео-ширина"
+};
+
+const vocalBlocks = {
+  double: "double-tracked vocals",
+  harmony: "layered vocal harmonies",
+  dry: "dry, upfront vocal, minimal effects",
+  wet: "wide reverb-drenched vocal"
+};
+const vocalLabels = { double: "Дабл-трек", harmony: "Хармонии", dry: "Сухой вокал", wet: "Вокал в ревербе" };
+
+const eraShort = { vintage: "vintage", "60s": "60s-style", "70s": "70s-style", "80s": "80s-style", "90s": "90s-style", "2000s": "2000s-style", modern: "modern" };
+const moodShort = { darkminor: "dark", upliftmajor: "uplifting", melancholic: "melancholic", aggressive: "aggressive", euphoric: "euphoric" };
+const tempoShort = { slow: "slow ballad", mid: "mid-tempo", up: "uptempo" };
+const heavinessShort = { clean: "clean tone", medium: "balanced heaviness", heavy: "heavy" };
+
+const instruments = {
+  drums: "drums", bass: "bass", guitar: "guitar", vocals: "vocals",
+  piano: "piano/keys", strings: "strings", brass: "brass", synth: "synth"
+};
+
+const el = id => document.getElementById(id);
+const subgenreEl = el('subgenre'), heavinessEl = el('heaviness'), customGenreEl = el('customGenre'),
+  eraEl = el('era'), tempoEl = el('tempo'), moodEl = el('mood'), dynamicsEl = el('dynamics'),
+  masterEl = el('master'), referenceEl = el('reference'), sourceEl = el('source'), notesEl = el('notes'),
+  out = el('out'), outB = el('outB'), variantBWrap = el('variantBWrap'), charCount = el('charCount'), summaryOut = el('summaryOut'),
+  presetSelect = el('presetSelect'), historyEl = el('history');
+
+for(const group in genreGroups){
+  const optgroup = document.createElement('optgroup');
+  optgroup.label = group;
+  genreGroups[group].forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g; opt.textContent = g;
+    optgroup.appendChild(opt);
+  });
+  subgenreEl.appendChild(optgroup);
+}
+
+function makeChipGroup(containerEl, labelsObj){
+  containerEl.innerHTML = '';
+  Object.keys(labelsObj).forEach(key => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'chip'; btn.dataset.key = key;
+    btn.textContent = labelsObj[key];
+    btn.addEventListener('click', () => { btn.classList.toggle('active'); build(); });
+    containerEl.appendChild(btn);
+  });
+}
+makeChipGroup(el('effectChips'), effectLabels);
+makeChipGroup(el('vocalChips'), vocalLabels);
+
+function makeCheckGroup(containerEl, itemsObj){
+  containerEl.innerHTML = '';
+  Object.keys(itemsObj).forEach(key => {
+    const wrap = document.createElement('label');
+    wrap.className = 'check-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.dataset.key = key;
+    cb.addEventListener('change', () => build(false));
+    wrap.appendChild(cb);
+    wrap.appendChild(document.createTextNode(itemsObj[key]));
+    containerEl.appendChild(wrap);
+  });
+}
+makeCheckGroup(el('addInstrumentChecks'), instruments);
+makeCheckGroup(el('removeInstrumentChecks'), instruments);
+
+function activeKeys(containerEl, selector){
+  return [...containerEl.querySelectorAll(selector)].map(node => node.dataset.key);
+}
+
+function getState(){
+  return {
+    subgenre: subgenreEl.value,
+    customGenre: customGenreEl.value.trim(),
+    heaviness: heavinessEl.value,
+    era: eraEl.value,
+    tempo: tempoEl.value,
+    mood: moodEl.value,
+    dynamics: dynamicsEl.value,
+    master: masterEl.value,
+    effects: activeKeys(el('effectChips'), '.chip.active'),
+    vocal: activeKeys(el('vocalChips'), '.chip.active'),
+    reference: referenceEl.value.trim(),
+    source: sourceEl.value,
+    addInstruments: activeKeys(el('addInstrumentChecks'), 'input:checked'),
+    removeInstruments: activeKeys(el('removeInstrumentChecks'), 'input:checked'),
+    notes: notesEl.value.trim()
+  };
+}
+
+const defaultState = {
+  subgenre: Object.values(genreGroups)[0][0], customGenre: '', heaviness: '', era: '',
+  tempo: '', mood: '', dynamics: '', master: '', effects: [], vocal: [],
+  reference: '', source: 'studio', addInstruments: [], removeInstruments: [], notes: ''
+};
+
+function applyState(s){
+  subgenreEl.value = s.subgenre || subgenreEl.value;
+  customGenreEl.value = s.customGenre || '';
+  heavinessEl.value = s.heaviness || '';
+  eraEl.value = s.era || '';
+  tempoEl.value = s.tempo || '';
+  moodEl.value = s.mood || '';
+  dynamicsEl.value = s.dynamics || '';
+  masterEl.value = s.master || '';
+  referenceEl.value = s.reference || '';
+  sourceEl.value = s.source || 'studio';
+  notesEl.value = s.notes || '';
+  [...el('effectChips').children].forEach(btn => btn.classList.toggle('active', (s.effects||[]).includes(btn.dataset.key)));
+  [...el('vocalChips').children].forEach(btn => btn.classList.toggle('active', (s.vocal||[]).includes(btn.dataset.key)));
+  [...el('addInstrumentChecks').querySelectorAll('input')].forEach(cb => cb.checked = (s.addInstruments||[]).includes(cb.dataset.key));
+  [...el('removeInstrumentChecks').querySelectorAll('input')].forEach(cb => cb.checked = (s.removeInstruments||[]).includes(cb.dataset.key));
+}
+
+const vintageEras = ['vintage', '60s', '70s', '80s'];
+const softMoods = ['melancholic', 'darkminor'];
+
+function renderPrompt(s){
+  const subgenre = s.customGenre || s.subgenre;
+  let lines = [];
+  lines.push(subgenre);
+
+  if(eraBlocks[s.era]) lines.push(eraBlocks[s.era]);
+  else lines.push("modern studio production, professional mix and master");
+
+  if(heavyBlocks[s.heaviness]) lines.push(heavyBlocks[s.heaviness]);
+  if(tempoBlocks[s.tempo]) lines.push(tempoBlocks[s.tempo]);
+  if(moodBlocks[s.mood]) lines.push(moodBlocks[s.mood]);
+  if(dynamicsBlocks[s.dynamics]) lines.push(dynamicsBlocks[s.dynamics]);
+  if(masterBlocks[s.master]) lines.push(masterBlocks[s.master]);
+
+  if(!vintageEras.includes(s.era)){
+    if(softMoods.includes(s.mood)) lines.push("warm, restrained drums, smooth guitar tone, controlled low end");
+    else lines.push("tight punchy drums, clear guitar tone, full low end");
+  }
+
+  const activeEffects = s.effects.map(k => effectBlocks[k]).filter(Boolean);
+  if(activeEffects.length) lines.push(activeEffects.join(", "));
+  const activeVocal = s.vocal.map(k => vocalBlocks[k]).filter(Boolean);
+  if(activeVocal.length) lines.push(activeVocal.join(", "));
+  if(s.reference) lines.push("sounds like " + s.reference);
+  lines.push("preserve original vocal performance and melody");
+  lines.push("preserve original arrangement and instrumentation");
+  if(s.addInstruments.length) lines.push("add " + s.addInstruments.map(k => instruments[k]).join(", add "));
+  if(s.notes) lines.push(s.notes);
+  lines.push("remaster quality upgrade, not a reinterpretation");
+
+  let negParts = [];
+  if(s.source === 'cassette') negParts.push("wow and flutter", "cassette noise", "dropout");
+  negParts.push(...s.removeInstruments.map(k => instruments[k]));
+
+  let text = lines.join(", \n");
+  if(negParts.length) text += "\n\nnegative: no " + negParts.join(", no ");
+  return text;
+}
+
+function updateCharCount(text){
+  charCount.textContent = text.length + " символов";
+  charCount.classList.toggle('warn', text.length > 1000);
+}
+
+function pushHistory(text){
+  const history = JSON.parse(localStorage.getItem('sunoHistory') || '[]');
+  history.unshift({ ts: Date.now(), text });
+  localStorage.setItem('sunoHistory', JSON.stringify(history.slice(0, 10)));
+  renderHistory();
+}
+
+function renderHistory(){
+  const history = JSON.parse(localStorage.getItem('sunoHistory') || '[]');
+  historyEl.innerHTML = '';
+  if(!history.length){
+    historyEl.innerHTML = '<div class="history-empty">пусто</div>';
+    return;
+  }
+  history.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    const d = new Date(item.ts);
+    div.title = item.text;
+    div.textContent = d.toLocaleString() + ' — ' + item.text.slice(0, 70).replace(/\n/g, ' ');
+    div.addEventListener('click', () => {
+      out.textContent = item.text;
+      updateCharCount(item.text);
+    });
+    historyEl.appendChild(div);
+  });
+}
+
+function buildSummary(s){
+  const subgenre = s.customGenre || s.subgenre;
+  let parts = [];
+  if(moodShort[s.mood]) parts.push(moodShort[s.mood]);
+  if(eraShort[s.era]) parts.push(eraShort[s.era]);
+  parts.push(subgenre);
+  if(heavinessShort[s.heaviness]) parts.push('(' + heavinessShort[s.heaviness] + ')');
+  if(tempoShort[s.tempo]) parts.push('— ' + tempoShort[s.tempo]);
+  let summary = parts.join(' ');
+  return summary.charAt(0).toUpperCase() + summary.slice(1);
+}
+
+function build(saveToHistory){
+  const s = getState();
+  localStorage.setItem('sunoCurrentState', JSON.stringify(s));
+  const text = renderPrompt(s);
+  out.textContent = text;
+  updateCharCount(text);
+  summaryOut.textContent = buildSummary(s);
+  if(saveToHistory) pushHistory(text);
+}
+
+function randomChoice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function randomize(){
+  const allGenres = Object.values(genreGroups).flat();
+  subgenreEl.value = randomChoice(allGenres);
+  customGenreEl.value = '';
+  heavinessEl.value = randomChoice(['', 'clean', 'medium', 'heavy']);
+  eraEl.value = randomChoice(Object.keys(eraBlocks).concat(''));
+  tempoEl.value = randomChoice(Object.keys(tempoBlocks).concat(''));
+  moodEl.value = randomChoice(Object.keys(moodBlocks).concat(''));
+  dynamicsEl.value = randomChoice(Object.keys(dynamicsBlocks).concat(''));
+  masterEl.value = randomChoice(Object.keys(masterBlocks).concat(''));
+  [...el('effectChips').children].forEach(btn => btn.classList.toggle('active', Math.random() < 0.35));
+  [...el('vocalChips').children].forEach(btn => btn.classList.toggle('active', Math.random() < 0.35));
+  build(true);
+}
+
+function generateVariantB(){
+  const base = getState();
+  const variant = Object.assign({}, base, {
+    era: randomChoice(Object.keys(eraBlocks).concat('')),
+    tempo: randomChoice(Object.keys(tempoBlocks).concat('')),
+    mood: randomChoice(Object.keys(moodBlocks).concat('')),
+    dynamics: randomChoice(Object.keys(dynamicsBlocks).concat('')),
+    master: randomChoice(Object.keys(masterBlocks).concat('')),
+    effects: Object.keys(effectBlocks).filter(() => Math.random() < 0.35),
+    vocal: Object.keys(vocalBlocks).filter(() => Math.random() < 0.35),
+    reference: ''
+  });
+  const text = renderPrompt(variant);
+  variantBWrap.style.display = 'block';
+  outB.textContent = text;
+}
+
+function renderPresetOptions(){
+  const presets = JSON.parse(localStorage.getItem('sunoPresets') || '{}');
+  presetSelect.innerHTML = '<option value="">— пресеты —</option>';
+  Object.keys(presets).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    presetSelect.appendChild(opt);
+  });
+}
+
+presetSelect.addEventListener('change', () => {
+  if(!presetSelect.value) return;
+  const presets = JSON.parse(localStorage.getItem('sunoPresets') || '{}');
+  const s = presets[presetSelect.value];
+  if(s){ applyState(s); build(); }
+});
+
+el('presetSave').addEventListener('click', () => {
+  const name = window.prompt('Название пресета:');
+  if(!name) return;
+  const presets = JSON.parse(localStorage.getItem('sunoPresets') || '{}');
+  presets[name] = getState();
+  localStorage.setItem('sunoPresets', JSON.stringify(presets));
+  renderPresetOptions();
+  presetSelect.value = name;
+});
+
+el('presetDelete').addEventListener('click', () => {
+  if(!presetSelect.value) return;
+  const presets = JSON.parse(localStorage.getItem('sunoPresets') || '{}');
+  delete presets[presetSelect.value];
+  localStorage.setItem('sunoPresets', JSON.stringify(presets));
+  renderPresetOptions();
+});
+
+el('clearHistory').addEventListener('click', () => {
+  localStorage.removeItem('sunoHistory');
+  renderHistory();
+});
+
+el('gen').addEventListener('click', () => build(true));
+el('copy').addEventListener('click', () => navigator.clipboard.writeText(out.textContent));
+el('copyB').addEventListener('click', () => navigator.clipboard.writeText(outB.textContent));
+el('copySummary').addEventListener('click', () => navigator.clipboard.writeText(summaryOut.textContent));
+el('randomize').addEventListener('click', randomize);
+el('genB').addEventListener('click', generateVariantB);
+el('reset').addEventListener('click', () => {
+  localStorage.removeItem('sunoCurrentState');
+  applyState(defaultState);
+  build(false);
+});
+
+[subgenreEl, heavinessEl, customGenreEl, eraEl, tempoEl, moodEl, dynamicsEl, masterEl, referenceEl, sourceEl, notesEl]
+  .forEach(node => node.addEventListener('input', () => build(false)));
+
+function currentTheme(){
+  if(document.documentElement.dataset.theme) return document.documentElement.dataset.theme;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function updateThemeIcon(){
+  el('themeToggle').textContent = currentTheme() === 'dark' ? '☀️' : '🌙';
+}
+el('themeToggle').addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('sunoTheme', next);
+  updateThemeIcon();
+});
+updateThemeIcon();
+
+const savedState = JSON.parse(localStorage.getItem('sunoCurrentState') || 'null');
+if(savedState) applyState(savedState);
+
+renderPresetOptions();
+renderHistory();
+build(false);
+</script>
+</body>
+</html>
