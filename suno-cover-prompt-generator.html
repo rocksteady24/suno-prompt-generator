@@ -173,7 +173,31 @@
 <div class="chip-group" id="effectChips"></div>
 
 <h2>Вокал</h2>
+<label>Подача</label>
+<select id="delivery">
+  <option value="" selected>— не указано —</option>
+  <option value="natural">нормальная (естественная)</option>
+  <option value="theatrical">театральная</option>
+  <option value="dramatic">драматичная</option>
+  <option value="ironic">ироничная</option>
+  <option value="deadpan">отстранённая / deadpan</option>
+  <option value="intimate">интимная, близко к микрофону</option>
+  <option value="storytelling">рассказ / разговорная фразировка</option>
+  <option value="laidback">расслабленная</option>
+  <option value="anguished">надрывная</option>
+  <option value="aggressive">агрессивная, на крике</option>
+  <option value="anthemic">гимновая, парящая</option>
+</select>
+
+<label>Техники</label>
+<div class="chip-group" id="techniqueChips"></div>
+<p class="hint">Техника на весь трек действует слабо — для конкретного места пиши в тег секции: <code>[Chorus | belted]</code>.</p>
+
+<label>Обработка</label>
 <div class="chip-group" id="vocalChips"></div>
+
+<label>Не прилизывать вокал (→ Exclude)</label>
+<div class="check-group" id="antiPolishChecks"></div>
 
 <label>Референс-звучание (опционально)</label>
 <input type="text" id="reference" placeholder="напр. raw early-90s Seattle guitar sound" />
@@ -361,6 +385,42 @@ const vocalBlocks = {
 };
 const vocalLabels = { double: "Дабл-трек", harmony: "Хармонии", dry: "Сухой вокал", wet: "Вокал в ревербе" };
 
+const deliveryBlocks = {
+  natural: "natural, honest vocal delivery",
+  theatrical: "theatrical vocal delivery",
+  dramatic: "dramatic, emotional vocal delivery",
+  ironic: "ironic, tongue-in-cheek vocal delivery",
+  deadpan: "deadpan, detached vocal delivery",
+  intimate: "intimate, close-mic vocal delivery",
+  storytelling: "storytelling vocal delivery, conversational phrasing",
+  laidback: "laid-back, effortless vocal delivery",
+  anguished: "anguished, raw emotional vocal delivery",
+  aggressive: "aggressive, shouted vocal delivery",
+  anthemic: "anthemic, soaring vocal delivery"
+};
+
+const techniqueBlocks = {
+  belting: "belted vocals",
+  falsetto: "falsetto",
+  vibrato: "vibrato",
+  breathy: "breathy vocals",
+  raspy: "raspy, gritty vocals",
+  whisper: "whispered vocals",
+  spoken: "spoken word",
+  fry: "vocal fry",
+  runs: "melismatic vocal runs",
+  scream: "screamed vocals",
+  growl: "growled vocals",
+  raw: "raw vocal takes, imperfect and human"
+};
+const techniqueLabels = {
+  belting: "Белтинг", falsetto: "Фальцет", vibrato: "Вибрато", breathy: "С придыханием",
+  raspy: "Хрипотца", whisper: "Шёпот", spoken: "Речитатив", fry: "Vocal fry",
+  runs: "Мелизмы", scream: "Скрим", growl: "Гроулинг", raw: "Сырые дубли"
+};
+
+const antiPolish = { smooth: "smooth", polished: "polished", popradio: "pop-radio", autotune: "autotune" };
+
 const eraShort = { vintage: "vintage", "60s": "60s-style", "70s": "70s-style", "80s": "80s-style", "90s": "90s-style", "2000s": "2000s-style", modern: "modern" };
 const moodShort = { darkminor: "dark", upliftmajor: "uplifting", melancholic: "melancholic", aggressive: "aggressive", euphoric: "euphoric" };
 const heavinessShort = { clean: "clean tone", medium: "balanced heaviness", heavy: "heavy" };
@@ -378,7 +438,7 @@ const legacyTempoBpm = { slow: 70, mid: 100, up: 140 };
 const el = id => document.getElementById(id);
 const modeEl = el('mode'), modelEl = el('model'), subgenreEl = el('subgenre'), heavinessEl = el('heaviness'),
   customGenreEl = el('customGenre'), eraEl = el('era'), bpmEl = el('bpm'), keyEl = el('key'), moodEl = el('mood'),
-  dynamicsEl = el('dynamics'), masterEl = el('master'), referenceEl = el('reference'), sourceEl = el('source'),
+  dynamicsEl = el('dynamics'), masterEl = el('master'), referenceEl = el('reference'), deliveryEl = el('delivery'), sourceEl = el('source'),
   notesEl = el('notes'), sectionsEl = el('sections'), styleOut = el('styleOut'), excludeOut = el('excludeOut'),
   lyricsOut = el('lyricsOut'), settingsOut = el('settingsOut'), summaryOut = el('summaryOut'),
   styleCount = el('styleCount'), excludeCount = el('excludeCount'), warningsEl = el('warnings'),
@@ -407,6 +467,7 @@ function makeChipGroup(containerEl, labelsObj){
 }
 makeChipGroup(el('effectChips'), effectLabels);
 makeChipGroup(el('vocalChips'), vocalLabels);
+makeChipGroup(el('techniqueChips'), techniqueLabels);
 
 function makeCheckGroup(containerEl, itemsObj){
   containerEl.innerHTML = '';
@@ -423,6 +484,7 @@ function makeCheckGroup(containerEl, itemsObj){
 }
 makeCheckGroup(el('addInstrumentChecks'), instruments);
 makeCheckGroup(el('removeInstrumentChecks'), instruments);
+makeCheckGroup(el('antiPolishChecks'), antiPolish);
 
 function addSectionRow(type, dir){
   const row = document.createElement('div');
@@ -470,6 +532,9 @@ function getState(){
     master: masterEl.value,
     effects: activeKeys(el('effectChips'), '.chip.active'),
     vocal: activeKeys(el('vocalChips'), '.chip.active'),
+    delivery: deliveryEl.value,
+    techniques: activeKeys(el('techniqueChips'), '.chip.active'),
+    antiPolish: activeKeys(el('antiPolishChecks'), 'input:checked'),
     reference: referenceEl.value.trim(),
     source: sourceEl.value,
     addInstruments: activeKeys(el('addInstrumentChecks'), 'input:checked'),
@@ -483,6 +548,7 @@ const defaultState = {
   mode: 'remaster', model: 'v6',
   subgenre: Object.values(genreGroups)[0][0], customGenre: '', heaviness: '', era: '',
   bpm: '', key: '', mood: '', dynamics: '', master: '', effects: [], vocal: [],
+  delivery: '', techniques: [], antiPolish: [],
   reference: '', source: 'studio', addInstruments: [], removeInstruments: [], notes: '', sections: []
 };
 
@@ -502,6 +568,7 @@ function applyState(saved){
   setSelect(dynamicsEl, s.dynamics, '');
   setSelect(masterEl, s.master, '');
   setSelect(sourceEl, s.source, 'studio');
+  setSelect(deliveryEl, s.delivery, '');
   customGenreEl.value = s.customGenre;
   bpmEl.value = s.bpm;
   keyEl.value = s.key;
@@ -509,6 +576,8 @@ function applyState(saved){
   notesEl.value = s.notes;
   [...el('effectChips').children].forEach(btn => btn.classList.toggle('active', s.effects.includes(btn.dataset.key)));
   [...el('vocalChips').children].forEach(btn => btn.classList.toggle('active', s.vocal.includes(btn.dataset.key)));
+  [...el('techniqueChips').children].forEach(btn => btn.classList.toggle('active', s.techniques.includes(btn.dataset.key)));
+  [...el('antiPolishChecks').querySelectorAll('input')].forEach(cb => cb.checked = s.antiPolish.includes(cb.dataset.key));
   [...el('addInstrumentChecks').querySelectorAll('input')].forEach(cb => cb.checked = s.addInstruments.includes(cb.dataset.key));
   [...el('removeInstrumentChecks').querySelectorAll('input')].forEach(cb => cb.checked = s.removeInstruments.includes(cb.dataset.key));
   setSections(s.sections);
@@ -525,6 +594,8 @@ function renderStyle(s){
   const tags = [s.customGenre || s.subgenre];
   const guitar = isGuitarGenre(s);
 
+  if(deliveryBlocks[s.delivery]) tags.push(deliveryBlocks[s.delivery]);
+  tags.push(...s.techniques.map(k => techniqueBlocks[k]).filter(Boolean));
   tags.push(...s.vocal.map(k => vocalBlocks[k]).filter(Boolean));
   tags.push(...s.addInstruments.map(k => instruments[k]));
   if(moodBlocks[s.mood]) tags.push(moodBlocks[s.mood]);
@@ -533,7 +604,7 @@ function renderStyle(s){
 
   if(guitar && heavyBlocks[s.heaviness]) tags.push(heavyBlocks[s.heaviness]);
   if(guitar && !vintageEras.includes(s.era)){
-    if(s.heaviness !== 'heavy' && softMoods.includes(s.mood)) tags.push("warm restrained drums, smooth guitar tone, controlled low end");
+    if(s.heaviness !== 'heavy' && softMoods.includes(s.mood)) tags.push("warm restrained drums, " + (s.antiPolish.includes('smooth') ? "natural" : "smooth") + " guitar tone, controlled low end");
     else tags.push("tight punchy drums, clear guitar tone, full low end");
   }
 
@@ -555,8 +626,8 @@ function renderStyle(s){
 
 function renderExclude(s){
   const items = s.removeInstruments.filter(k => !s.addInstruments.includes(k)).map(k => instruments[k]);
-  if(s.source === 'cassette') items.push("tape hiss", "wow and flutter", "dropouts");
-  items.push("muddy mix", "clipping");
+  items.push(...s.antiPolish.map(k => antiPolish[k]).filter(Boolean));
+  if(s.source === 'cassette') items.push("tape hiss", "lo-fi", "wow and flutter");
   return { kept: items.slice(0, EXCLUDE_CAP), dropped: items.slice(EXCLUDE_CAP) };
 }
 
@@ -574,10 +645,16 @@ function renderLyrics(sections){
   }).join("\n\n");
 }
 
-function collectWarnings(s, exclude, styleLen){
+function collectWarnings(s, exclude, style){
   const w = [];
+  const styleLen = style.length;
+  const styleLower = style.toLowerCase();
+  const clash = s.antiPolish.map(k => antiPolish[k]).filter(word => styleLower.includes(word));
+  if(clash.length) w.push("В Styles есть слова из Exclude: " + clash.join(", ") + " — Suno получит противоречие (проверь жанр, мастеринг, пометки).");
+  if(s.antiPolish.length && !clash.length && s.master === 'radio') w.push("radio-ready мастеринг тянет к глянцу — конфликтует с «не прилизывать вокал».");
+  if(s.techniques.includes('whisper') && (s.techniques.includes('scream') || s.techniques.includes('belting'))) w.push("Шёпот и крик/белтинг на весь трек — разнеси по тегам секций.");
   if(styleLen > 1000) w.push("Styles длиннее 1000 символов — Suno молча обрежет хвост.");
-  if(exclude.dropped.length) w.push("Exclude: Suno учитывает ~" + EXCLUDE_CAP + " пунктов, не вошли: " + exclude.dropped.join(", ") + ". Сними лишние галочки «Убрать».");
+  if(exclude.dropped.length) w.push("Exclude: Suno учитывает ~" + EXCLUDE_CAP + " пунктов, не вошли: " + exclude.dropped.join(", ") + ". Сними лишние галочки «Убрать» / «Не прилизывать».");
   const both = s.addInstruments.filter(k => s.removeInstruments.includes(k));
   if(both.length) w.push("Одновременно «добавить» и «убрать»: " + both.map(k => instruments[k]).join(", ") + " — оставлено только в Styles.");
   if(s.heaviness && !isGuitarGenre(s)) w.push("Тяжесть работает только для рок/метал-поджанров из списка — сейчас игнорируется.");
@@ -655,7 +732,7 @@ function build(saveToHistory){
   summaryOut.textContent = buildSummary(s);
 
   warningsEl.innerHTML = '';
-  collectWarnings(s, exclude, style.length).forEach(text => {
+  collectWarnings(s, exclude, style).forEach(text => {
     const li = document.createElement('li');
     li.textContent = text;
     warningsEl.appendChild(li);
@@ -714,6 +791,8 @@ function randomize(){
   masterEl.value = randomChoice(Object.keys(masterBlocks).concat(''));
   [...el('effectChips').children].forEach(btn => btn.classList.toggle('active', Math.random() < 0.35));
   [...el('vocalChips').children].forEach(btn => btn.classList.toggle('active', Math.random() < 0.35));
+  deliveryEl.value = randomChoice(Object.keys(deliveryBlocks).concat(''));
+  [...el('techniqueChips').children].forEach(btn => btn.classList.toggle('active', Math.random() < 0.15));
   build(true);
 }
 
@@ -772,7 +851,7 @@ el('reset').addEventListener('click', () => {
   build(false);
 });
 
-[modeEl, modelEl, subgenreEl, heavinessEl, customGenreEl, eraEl, bpmEl, keyEl, moodEl, dynamicsEl, masterEl, referenceEl, sourceEl, notesEl]
+[modeEl, modelEl, subgenreEl, heavinessEl, customGenreEl, eraEl, bpmEl, keyEl, moodEl, dynamicsEl, masterEl, deliveryEl, referenceEl, sourceEl, notesEl]
   .forEach(node => node.addEventListener('input', () => build(false)));
 
 function currentTheme(){
