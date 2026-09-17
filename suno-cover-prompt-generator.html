@@ -137,6 +137,7 @@
     <input type="text" id="key" placeholder="напр. E minor" />
   </div>
 </div>
+<p class="hint">Темп и тональность Suno берёт из демки — идут только в Summary, не в Styles. Сменить их можно в DAW до загрузки.</p>
 <label>Настроение</label>
 <select id="mood">
   <option value="" selected>— не указано —</option>
@@ -599,8 +600,6 @@ function renderStyle(s){
   tags.push(...s.vocal.map(k => vocalBlocks[k]).filter(Boolean));
   tags.push(...s.addInstruments.map(k => instruments[k]));
   if(moodBlocks[s.mood]) tags.push(moodBlocks[s.mood]);
-  if(s.bpm) tags.push(s.bpm + " BPM");
-  if(s.key) tags.push(s.key);
 
   if(guitar && heavyBlocks[s.heaviness]) tags.push(heavyBlocks[s.heaviness]);
   if(guitar && !vintageEras.includes(s.era)){
@@ -699,7 +698,8 @@ function buildSummary(s){
   if(eraShort[s.era]) parts.push(eraShort[s.era]);
   parts.push(s.customGenre || s.subgenre);
   if(isGuitarGenre(s) && heavinessShort[s.heaviness]) parts.push('(' + heavinessShort[s.heaviness] + ')');
-  if(s.bpm) parts.push('— ' + s.bpm + ' BPM');
+  const tempoKey = [s.bpm && s.bpm + ' BPM', s.key].filter(Boolean).join(', ');
+  if(tempoKey) parts.push('— ' + tempoKey);
   const summary = parts.join(' ');
   return summary.charAt(0).toUpperCase() + summary.slice(1);
 }
